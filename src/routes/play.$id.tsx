@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Shell } from "@/components/shell";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
-import { getPlayQuiz, submitCustomAttempt, type PlayQuestion } from "@/lib/quiz/custom";
+import { getPlayQuiz, revealCustomAnswer, submitCustomAttempt, type PlayQuestion } from "@/lib/quiz/custom";
 
 export const Route = createFileRoute("/play/$id")({ component: PlayPage });
 
@@ -15,6 +15,8 @@ function PlayPage() {
   const [name, setName] = useState("");
   const [done, setDone] = useState<{ score: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [shown, setShown] = useState<Record<number, number>>({});
+  const [checking, setChecking] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -60,13 +62,30 @@ function PlayPage() {
   const question = quiz.questions[index];
   const total = quiz.questions.length;
   const picked = answers[index] ?? null;
+  const correctIndex = shown[index] ?? null;
 
-  function choose(optionIndex: number) {
+  async function choose(optionIndex: number) {
+    if (answers[index] != null || checking) return;
     setAnswers((list) => {
       const next = [...list];
       next[index] = optionIndex;
       return next;
     });
+    setChecking(true);
+    setError(null);
+    try {
+      const result = await revealCustomAnswer({ data: { slug: id, index, picked: optionIndex } });
+      setShown((map) => ({ ...map, [index]: result.correctIndex }));
+    } catch (err) {
+      setAnswers((list) => {
+        const next = [...list];
+        next[index] = null;
+        return next;
+      });
+      setError(err instanceof Error ? err.message : "Жауап ашылмады");
+    } finally {
+      setChecking(false);
+    }
   }
 
   function back() {
@@ -118,6 +137,7 @@ function PlayPage() {
               onClick={() => {
                 setIndex(0);
                 setAnswers([]);
+                setShown({});
                 setDone(null);
               }}
             >
@@ -140,28 +160,40 @@ function PlayPage() {
             </p>
             <h2 className="mt-2 text-xl font-semibold">{question.prompt}</h2>
             <div className="mt-6 grid gap-3">
-              {question.options.map((option, optionIndex) => (
-                <button
-                  key={`${index}-${optionIndex}`}
-                  type="button"
-                  onClick={() => choose(optionIndex)}
-                  className={
-                    picked === optionIndex
-                      ? "min-h-12 rounded-2xl border border-signal bg-signal/10 px-4 py-3 text-left"
-                      : "min-h-12 rounded-2xl border border-line bg-ink px-4 py-3 text-left hover:border-signal/60"
-                  }
-                >
-                  <span className="mr-3 font-mono text-xs text-signal">{String.fromCharCode(65 + optionIndex)}</span>
-                  {option}
-                </button>
-              ))}
+              {question.options.map((option, optionIndex) => {
+                const revealed = correctIndex !== null;
+                const isCorrect = revealed && optionIndex === correctIndex;
+                const isPick = picked === optionIndex;
+                const tone = !revealed
+                  ? isPick
+                    ? "border-signal bg-signal/10"
+                    : "border-line bg-ink hover:border-signal/60"
+                  : isCorrect
+                    ? "border-emerald-300 bg-emerald-400/15"
+                    : isPick
+                      ? "border-rose-300 bg-rose-400/15"
+                      : "border-line bg-ink opacity-70";
+                return (
+                  <button
+                    key={`${index}-${optionIndex}`}
+                    type="button"
+                    onClick={() => void choose(optionIndex)}
+                    className={`min-h-12 rounded-2xl border px-4 py-3 text-left ${tone}`}
+                  >
+                    <span className="mr-3 font-mono text-xs text-signal">{String.fromCharCode(65 + optionIndex)}</span>
+                    {option}
+                    {isCorrect ? <span className="ml-2 text-sm text-emerald-200">Дұрыс</span> : null}
+                    {revealed && isPick && !isCorrect ? <span className="ml-2 text-sm text-rose-200">Қате</span> : null}
+                  </button>
+                );
+              })}
             </div>
             {error ? <p className="mt-4 text-sm text-gold">{error}</p> : null}
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <button type="button" disabled={index === 0 || busy} onClick={back} className="btn-3d w-full sm:flex-1">
                 Артқа
               </button>
-              <button type="button" disabled={picked === null || busy} onClick={confirm} className="btn-3d w-full sm:flex-1">
+              <button type="button" disabled={picked === null || busy || correctIndex === null} onClick={confirm} className="btn-3d w-full sm:flex-1">
                 {busy ? "Тексерілуде…" : index + 1 === total ? "Аяқтау" : "Келесі"}
               </button>
             </div>

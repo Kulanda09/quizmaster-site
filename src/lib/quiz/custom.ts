@@ -178,6 +178,28 @@ export const listPublicQuizzes = createServerFn({ method: "GET" }).handler(async
   }));
 });
 
+export const revealCustomAnswer = createServerFn({ method: "POST" })
+  .validator((input: { slug: string; index: number; picked: number }) => {
+    const slug = input.slug.trim();
+    if (!/^[a-zA-Z0-9_-]{1,40}$/.test(slug)) throw new Error("Квиз табылмады");
+    if (!Number.isInteger(input.index) || input.index < 0 || input.index > 29) throw new Error("Сұрақ табылмады");
+    if (input.picked !== 0 && input.picked !== 1 && input.picked !== 2 && input.picked !== 3) {
+      throw new Error("Жауап табылмады");
+    }
+    return { slug, index: input.index, picked: input.picked };
+  })
+  .handler(async ({ data }) => {
+    const sql = await getSql();
+    const rows = await sql<{ questions: CustomQuestion[] | string }>`
+      select questions from custom_quizzes
+      where lower(slug) = lower(${data.slug}) or join_code = upper(${data.slug})
+    `;
+    const questions = rows[0] ? parseQuestions(rows[0].questions) : [];
+    const question = questions[data.index];
+    if (!question) throw new Error("Сұрақ табылмады");
+    return { correctIndex: question.correct, right: data.picked === question.correct };
+  });
+
 export const getPlayQuiz = createServerFn({ method: "GET" })
   .validator((slug: string) => {
     const value = slug.trim();

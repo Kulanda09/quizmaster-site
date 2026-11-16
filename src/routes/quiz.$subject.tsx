@@ -38,6 +38,7 @@ function QuizPage() {
   const progress = done ? 100 : Math.round((index / total) * 100);
 
   function choose(optionIndex: number) {
+    if (answers[index] != null) return;
     setAnswers((list) => {
       const next = [...list];
       next[index] = optionIndex;
@@ -146,22 +147,31 @@ function QuizPage() {
             <h2 className="text-xl font-semibold leading-snug sm:text-2xl">{question.prompt}</h2>
             <div className="mt-6 grid gap-3">
               {question.options.map((option, optionIndex) => {
-                const active = picked === optionIndex;
+                const revealed = picked !== null;
+                const isCorrect = optionIndex === question.correct;
+                const isPick = picked === optionIndex;
+                const tone = !revealed
+                  ? isPick
+                    ? "border-signal bg-signal/10"
+                    : "border-line bg-ink hover:border-signal/60"
+                  : isCorrect
+                    ? "border-emerald-300 bg-emerald-400/15"
+                    : isPick
+                      ? "border-rose-300 bg-rose-400/15"
+                      : "border-line bg-ink opacity-70";
                 return (
                   <button
                     key={option}
                     type="button"
                     onClick={() => choose(optionIndex)}
-                    className={
-                      active
-                        ? "min-h-12 rounded-2xl border border-signal bg-signal/10 px-4 py-3 text-left font-medium text-fg"
-                        : "min-h-12 rounded-2xl border border-line bg-ink px-4 py-3 text-left font-medium text-fg hover:border-signal/60"
-                    }
+                    className={`min-h-12 rounded-2xl border px-4 py-3 text-left font-medium text-fg ${tone}`}
                   >
                     <span className="mr-3 font-mono text-xs text-signal">
                       {String.fromCharCode(65 + optionIndex)}
                     </span>
                     {option}
+                    {revealed && isCorrect ? <span className="ml-2 text-sm text-emerald-200">Дұрыс</span> : null}
+                    {revealed && isPick && !isCorrect ? <span className="ml-2 text-sm text-rose-200">Қате</span> : null}
                   </button>
                 );
               })}

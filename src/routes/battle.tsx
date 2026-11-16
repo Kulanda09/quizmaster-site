@@ -16,6 +16,7 @@ function BattlePage() {
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [left, setLeft] = useState(SECONDS);
+  const [picked, setPicked] = useState<number | null>(null);
   const [flash, setFlash] = useState<"ok" | "bad" | null>(null);
   const [done, setDone] = useState(false);
   const [savedNote, setSavedNote] = useState<string | null>(null);
@@ -34,16 +35,18 @@ function BattlePage() {
   useEffect(() => {
     if (!subject || done || flash || count !== 0) return;
     if (left <= 0) {
-      settle(false);
+      settle(null);
       return;
     }
     const timer = window.setTimeout(() => setLeft((value) => value - 1), 1000);
     return () => window.clearTimeout(timer);
   }, [left, done, flash, index, subjectId, count]);
 
-  function settle(ok: boolean) {
-    if (lock.current || done || !subject) return;
+  function settle(optionIndex: number | null) {
+    if (lock.current || done || !subject || !question) return;
     lock.current = true;
+    const ok = optionIndex !== null && optionIndex === question.correct;
+    setPicked(optionIndex);
     setFlash(ok ? "ok" : "bad");
     const nextScore = score + (ok ? 1 : 0);
     window.setTimeout(() => {
@@ -51,6 +54,7 @@ function BattlePage() {
         setScore(nextScore);
         setDone(true);
         setFlash(null);
+        setPicked(null);
         if (user) {
           saveAttempt({ data: { subject: subject.id, score: nextScore, total: subject.questions.length } })
             .then(() => setSavedNote("Нәтиже кабинетке жазылды"))
@@ -62,8 +66,9 @@ function BattlePage() {
       setIndex((value) => value + 1);
       setLeft(SECONDS);
       setFlash(null);
+      setPicked(null);
       lock.current = false;
-    }, 650);
+    }, 1200);
   }
 
   function reset(next: SubjectId | null) {
@@ -74,6 +79,7 @@ function BattlePage() {
     setFlash(null);
     setDone(false);
     setSavedNote(null);
+    setPicked(null);
     setCount(next ? 3 : null);
     lock.current = false;
   }
@@ -152,17 +158,32 @@ function BattlePage() {
             </p>
             <h2 className="mt-2 text-xl font-bold">{question.prompt}</h2>
             <div className="mt-5 grid gap-3">
-              {question.options.map((option, optionIndex) => (
-                <button
-                  key={`${index}-${optionIndex}`}
-                  type="button"
-                  disabled={flash !== null}
-                  onClick={() => settle(optionIndex === question.correct)}
-                  className="min-h-12 rounded-2xl border border-line bg-ink px-4 py-3 text-left font-medium hover:border-signal"
-                >
-                  {option}
-                </button>
-              ))}
+              {question.options.map((option, optionIndex) => {
+                const revealed = flash !== null;
+                const isCorrect = revealed && optionIndex === question.correct;
+                const isPick = picked === optionIndex;
+                const tone = !revealed
+                  ? "border-line bg-ink hover:border-signal"
+                  : isCorrect
+                    ? "border-emerald-300 bg-emerald-400/15"
+                    : isPick
+                      ? "border-rose-300 bg-rose-400/15"
+                      : "border-line bg-ink opacity-70";
+                return (
+                  <button
+                    key={`${index}-${optionIndex}`}
+                    type="button"
+                    disabled={flash !== null}
+                    onClick={() => settle(optionIndex)}
+                    className={`min-h-12 rounded-2xl border px-4 py-3 text-left font-medium ${tone}`}
+                  >
+                    <span className="mr-3 font-mono text-xs text-signal">{String.fromCharCode(65 + optionIndex)}</span>
+                    {option}
+                    {isCorrect ? <span className="ml-2 text-sm text-emerald-200">Дұрыс</span> : null}
+                    {revealed && isPick && !isCorrect ? <span className="ml-2 text-sm text-rose-200">Қате</span> : null}
+                  </button>
+                );
+              })}
             </div>
           </section>
         )}

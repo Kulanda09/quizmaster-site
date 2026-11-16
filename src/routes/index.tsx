@@ -25,19 +25,7 @@ function Home() {
             <Link to="/join" className="btn-ghost">
               Кодпен кіру
             </Link>
-            <a
-              href="/downloads/QuizMaster-vscode.zip"
-              download="QuizMaster-vscode.zip"
-              target="_blank"
-              rel="noopener"
-              className="btn-3d relative z-30"
-            >
-              Кодты жүктеу
-            </a>
           </div>
-          <p className="mt-4 max-w-md text-sm text-muted">
-            Пән тесттері аккаунтсыз ашық. Онлайн қарсылас әлі жоқ — жеке таймер баттлы жұмыс істейді.
-          </p>
         </div>
         <Scene />
       </main>

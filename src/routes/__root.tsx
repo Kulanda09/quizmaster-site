@@ -12,6 +12,10 @@ export const Route = createRootRoute({
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: APP_NAME },
       { name: "theme-color", content: "#071426" },
+      {
+        name: "google-site-verification",
+        content: "daT5Tr0_W4cPl3asgrR4K9yEHwEBkrjFx5Ny9juRpN8",
+      },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
